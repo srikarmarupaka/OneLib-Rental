@@ -45,10 +45,16 @@ export const fetchBooks = async (query: string = 'Indian Literature', category?:
       
       // Deterministic "random" values
       const isFree = (hash % 10) > 8; // 20% chance
+      const hasAudio = (hash % 10) > 5; // 40% chance of Audio
       const partnerIndex = hash % LIBRARY_PARTNERS.length;
       const rating = (hash % 15) / 10 + 3.5; // 3.5 to 5.0
       const rentPrice = (hash % 50) + 29; // 29 to 79
-      const availability = (hash % 10) > 1 ? Availability.AVAILABLE : Availability.RENTED;
+      
+      const totalCopies = (hash % 5) + 1; // 1 to 5 copies
+      const rentedCopies = (hash % totalCopies); 
+      const availableCopies = totalCopies - rentedCopies;
+      
+      const availability = availableCopies > 0 ? Availability.AVAILABLE : Availability.RENTED;
 
       const partner = LIBRARY_PARTNERS[partnerIndex].name;
 
@@ -67,10 +73,13 @@ export const fetchBooks = async (query: string = 'Indian Literature', category?:
         rating: parseFloat(rating.toFixed(1)),
         rentPrice: isFree ? 0 : rentPrice, 
         isDigitalFree: isFree,
+        hasAudio: hasAudio,
         availability: availability,
         description: info.description ? stripHtml(info.description) : 'No description available for this title.',
         libraryPartner: partner,
-        publisher: info.publisher || 'Unknown Publisher'
+        publisher: info.publisher || 'Unknown Publisher',
+        totalCopies,
+        availableCopies
       };
     });
   } catch (error) {
