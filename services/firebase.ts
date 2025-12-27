@@ -8,8 +8,8 @@ const firebaseConfig = {
   projectId: "onelib-7a67e",
   storageBucket: "onelib-7a67e.firebasestorage.app",
   messagingSenderId: "1042738538",
-  appId: "1:1042738538:web:744d139a1dff413ab68913",
-  measurementId: "G-6KTKM54612"
+  appId: "1:1042738538:web:744d139a1dff413ab68913"
+  // measurementId removed to prevent net::ERR_BLOCKED_BY_CLIENT from ad-blockers
 };
 
 const app = initializeApp(firebaseConfig);
