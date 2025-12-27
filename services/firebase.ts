@@ -1,14 +1,17 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBehlFV6EegMNuqovpaVmC9_3JYqAq82TA",
-  authDomain: "onelib-7a67e.firebaseapp.com",
-  projectId: "onelib-7a67e",
-  storageBucket: "onelib-7a67e.firebasestorage.app",
-  messagingSenderId: "1042738538",
-  appId: "1:1042738538:web:744d139a1dff413ab68913"
+  apiKey: process.env.VITE_FIREBASE_API_KEY,
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.VITE_FIREBASE_APP_ID,
   // measurementId removed to prevent net::ERR_BLOCKED_BY_CLIENT from ad-blockers
 };
 
