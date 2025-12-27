@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { User, Book, BookOpen, Clock, Settings, LogOut, Gift, Share2, Copy } from 'lucide-react';
+import { User, Book, BookOpen, Clock, Settings, LogOut, Gift, Share2, Copy, Truck, ArrowUpRight, Package, RefreshCw } from 'lucide-react';
 import { MembershipCard } from './MembershipCard';
-import { User as UserType, Book as BookType, Rental } from '../types';
+import { User as UserType, Book as BookType, Rental, RentalStatus } from '../types';
+import { TrackingModal } from './TrackingModal';
 
 interface UserProfileProps {
   user: UserType;
@@ -11,14 +12,16 @@ interface UserProfileProps {
   onRenew: (bookId: string) => void;
   onRead: (book: BookType) => void;
   onSettingsClick: () => void;
+  onRequestReturn: (rentalId: string) => void;
 }
 
-export const UserProfile: React.FC<UserProfileProps> = ({ user, rentals, onLogout, onBrowse, onRenew, onRead, onSettingsClick }) => {
+export const UserProfile: React.FC<UserProfileProps> = ({ user, rentals, onLogout, onBrowse, onRenew, onRead, onSettingsClick, onRequestReturn }) => {
   const [activeTab, setActiveTab] = useState<'rentals' | 'downloads'>('rentals');
   const [copied, setCopied] = useState(false);
+  const [trackingRental, setTrackingRental] = useState<Rental | null>(null);
 
-  // Filter rentals specific to this user
-  const userRentals = rentals.filter(r => r.userId === user.id && (r.status === 'pending' || r.status === 'issued' || r.status === 'overdue'));
+  // Filter rentals specific to this user. We show all active, delivered, and recently returned.
+  const userRentals = rentals.filter(r => r.userId === user.id && r.status !== 'cancelled' && r.status !== 'rejected');
 
   const referralCode = `ONE-${user.id.substring(0, 4).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
 
@@ -26,6 +29,20 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, rentals, onLogou
     navigator.clipboard.writeText(referralCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const getStatusColor = (status: RentalStatus) => {
+    switch (status) {
+        case 'pending': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400';
+        case 'approved': return 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400';
+        case 'dispatched': return 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400';
+        case 'delivered': return 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400';
+        case 'return_requested': return 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400';
+        case 'return_scheduled': return 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400';
+        case 'returned': return 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400';
+        case 'overdue': return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400';
+        default: return 'bg-slate-100 text-slate-500';
+    }
   };
 
   return (
@@ -52,8 +69,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, rentals, onLogou
 
             <div className="grid grid-cols-2 gap-4 border-t border-slate-100 dark:border-slate-700 pt-6">
               <div className="text-center">
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">{userRentals.length}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Active Rentals</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">{userRentals.filter(r => r.status === 'delivered').length}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Books with You</p>
               </div>
               <div className="text-center border-l border-slate-100 dark:border-slate-700">
                 <p className="text-2xl font-bold text-amber-600 dark:text-amber-500 flex items-center justify-center gap-1">
@@ -133,34 +150,69 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, rentals, onLogou
                       <div key={rental.id} className="flex gap-4 p-4 rounded-xl border border-slate-100 dark:border-slate-700 hover:shadow-md transition-shadow bg-white dark:bg-slate-800">
                         <img src={rental.bookCover} alt={rental.bookTitle} className="w-16 h-24 object-cover rounded-md shadow-sm" />
                         <div className="flex-1">
-                          <div className="flex justify-between items-start">
+                          <div className="flex justify-between items-start mb-1">
                              <h3 className="font-serif font-bold text-slate-900 dark:text-white">{rental.bookTitle}</h3>
-                             <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${
-                                 rental.status === 'pending' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' :
-                                 rental.status === 'issued' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
-                                 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-                             }`}>
-                                 {rental.status}
+                             <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${getStatusColor(rental.status)}`}>
+                                 {rental.status.replace('_', ' ')}
                              </span>
                           </div>
                           <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Order ID: #{rental.id.slice(-6)}</p>
+                          
+                          {/* Contextual Status Messages */}
                           {rental.status === 'pending' && (
                               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Waiting for librarian approval...</p>
                           )}
-                          {(rental.status === 'issued' || rental.status === 'overdue') && (
+                          {rental.status === 'dispatched' && (
+                              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1"><Truck size={12}/> Out for delivery</p>
+                          )}
+                          {(rental.status === 'delivered' || rental.status === 'overdue') && (
                               <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded inline-block mt-1">
                                  <Clock size={12} /> Due: {rental.dueDate ? new Date(rental.dueDate).toLocaleDateString() : 'N/A'}
                               </div>
                           )}
+                          {rental.status === 'return_requested' && (
+                             <p className="text-xs text-purple-600 mt-1">Return request sent. Waiting for pickup schedule.</p>
+                          )}
+                          {rental.status === 'return_scheduled' && (
+                             <p className="text-xs text-orange-600 mt-1">Pickup Scheduled. Please keep book ready.</p>
+                          )}
+                          {rental.status === 'returned' && (
+                             <p className="text-xs text-slate-400 mt-1">Book returned to library.</p>
+                          )}
+
+                          {/* Action Buttons */}
+                          <div className="flex gap-3 mt-3">
+                              {/* Track Order Button (Visible for Active states) */}
+                              {rental.status !== 'pending' && rental.status !== 'cancelled' && (
+                                  <button 
+                                      onClick={() => setTrackingRental(rental)}
+                                      className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                                  >
+                                      <Package size={14} /> Track Order
+                                  </button>
+                              )}
+                              
+                              {/* Renew Button */}
+                              {rental.status === 'delivered' && (
+                                <button 
+                                  onClick={() => onRenew(rental.bookId)}
+                                  className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1"
+                                >
+                                  <RefreshCw size={14} /> Renew
+                                </button>
+                              )}
+                              
+                              {/* Return Button */}
+                              {rental.status === 'delivered' && (
+                                <button 
+                                  onClick={() => onRequestReturn(rental.id)}
+                                  className="text-xs font-bold text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 flex items-center gap-1 ml-auto border border-slate-200 dark:border-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                                >
+                                  <ArrowUpRight size={14} /> Request Return
+                                </button>
+                              )}
+                          </div>
                         </div>
-                        {rental.status === 'issued' && (
-                            <button 
-                              onClick={() => onRenew(rental.bookId)}
-                              className="self-center px-4 py-2 text-sm text-amber-600 dark:text-amber-400 font-medium border border-amber-200 dark:border-amber-800 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
-                            >
-                              Renew
-                            </button>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -215,6 +267,11 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, rentals, onLogou
           </div>
         </div>
       </div>
+      
+      {/* Tracking Modal */}
+      {trackingRental && (
+          <TrackingModal rental={trackingRental} onClose={() => setTrackingRental(null)} />
+      )}
     </div>
   );
 };

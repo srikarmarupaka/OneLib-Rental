@@ -24,7 +24,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { ONELIB_BENEFITS, LIBRARY_PARTNERS } from './constants';
-import { Book, ViewState, BookCategory, User, ToastMessage, UserRole, Rental, Availability, Notification, LibraryPartner, Review } from './types';
+import { Book, ViewState, BookCategory, User, ToastMessage, UserRole, Rental, Availability, Notification, LibraryPartner, Review, RentalStatus } from './types';
 import { LibrarianChat } from './components/LibrarianChat';
 import { MembershipCard } from './components/MembershipCard';
 import { AuthModal } from './components/AuthModal';
@@ -348,72 +348,101 @@ const App: React.FC = () => {
       addToast("Book details updated successfully.", 'success');
   };
 
+  // Replaces handleIssueBook with a broader function, but keeping alias for initial approval
   const handleIssueBook = (rentalId: string) => {
-      if (user?.role !== 'librarian') return;
-      const rental = rentals.find(r => r.id === rentalId);
-      if (!rental) return;
-
-      const issueDate = new Date();
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + 14);
-
-      setRentals(prev => prev.map(r => r.id === rentalId ? {
-          ...r,
-          status: 'issued',
-          issueDate: issueDate.toISOString(),
-          dueDate: dueDate.toISOString(),
-          holdExpiresAt: undefined // Clear hold timer
-      } : r));
-
-      // Note: Inventory was already decremented on request. We don't change it here.
-      
-      // Notify User
-      addNotification(rental.userId, `Good news! Your request for "${rental.bookTitle}" has been approved.`, 'success');
-      addToast("Book issued successfully.", 'success');
+      handleUpdateStatus(rentalId, 'approved');
   };
 
-  const handleReturnBook = (rentalId: string) => {
-      if (user?.role !== 'librarian') return;
+  const handleUpdateStatus = (rentalId: string, status: string) => {
       const rental = rentals.find(r => r.id === rentalId);
       if (!rental) return;
 
-      setRentals(prev => prev.map(r => r.id === rentalId ? {
-          ...r,
-          status: 'returned',
-          returnDate: new Date().toISOString()
-      } : r));
+      let notifMsg = '';
+      let toastMsg = '';
+      const now = new Date().toISOString();
+      const nextWeek = new Date(); nextWeek.setDate(nextWeek.getDate() + 14);
 
-      // Restore Inventory
-      setBooks(prev => prev.map(b => {
-          if (b.id === rental.bookId) {
-              const newAvailable = Math.min(b.availableCopies + 1, b.totalCopies);
-              return { ...b, availableCopies: newAvailable, availability: newAvailable > 0 ? Availability.AVAILABLE : Availability.RENTED };
+      setRentals(prev => prev.map(r => {
+          if (r.id === rentalId) {
+             const updated = { ...r, status: status as RentalStatus };
+             
+             // Add event to history
+             let eventDesc = `Status updated to ${status}`;
+             if (status === 'approved') {
+                 updated.issueDate = now;
+                 updated.dueDate = nextWeek.toISOString();
+                 updated.holdExpiresAt = undefined;
+                 eventDesc = "Order Approved by Librarian";
+                 notifMsg = `Your rental for "${r.bookTitle}" is approved!`;
+             } else if (status === 'dispatched') {
+                 eventDesc = "Book Dispatched from Library via Courier";
+                 notifMsg = `Great news! "${r.bookTitle}" is on its way.`;
+             } else if (status === 'delivered') {
+                 eventDesc = "Delivered to Member's Address";
+                 notifMsg = `"${r.bookTitle}" has been delivered. Happy reading!`;
+             } else if (status === 'return_scheduled') {
+                 eventDesc = "Return Pickup Scheduled";
+                 notifMsg = `Pickup scheduled for "${r.bookTitle}". Please keep the book ready.`;
+             } else if (status === 'returned') {
+                 updated.returnDate = now;
+                 eventDesc = "Returned to Library Inventory";
+                 notifMsg = `We received "${r.bookTitle}". Thank you for returning it on time.`;
+             }
+
+             updated.trackingHistory = [
+                 ...r.trackingHistory, 
+                 { status: status as RentalStatus, timestamp: now, location: 'System Update', description: eventDesc }
+             ];
+             return updated;
           }
-          return b;
+          return r;
       }));
 
-      addNotification(rental.userId, `Your return for "${rental.bookTitle}" has been processed. Thank you!`, 'info');
-      addToast("Book marked as returned.", 'success');
+      // Handle Inventory Logic for Returns
+      if (status === 'returned' || status === 'rejected' || status === 'cancelled') {
+           setBooks(prev => prev.map(b => {
+                if (b.id === rental.bookId) {
+                    const newAvailable = Math.min(b.availableCopies + 1, b.totalCopies);
+                    return { ...b, availableCopies: newAvailable, availability: newAvailable > 0 ? Availability.AVAILABLE : Availability.RENTED };
+                }
+                return b;
+           }));
+      }
+
+      if (notifMsg) addNotification(rental.userId, notifMsg, 'info');
+      addToast(`Status updated to ${status}`, 'success');
   };
 
   const handleRejectRental = (rentalId: string) => {
       if (user?.role !== 'librarian') return;
+      handleUpdateStatus(rentalId, 'rejected');
+      addToast("Rental request rejected.", 'info');
+  };
+
+  // --- USER TRACKING ACTIONS ---
+
+  const handleRequestReturn = (rentalId: string) => {
       const rental = rentals.find(r => r.id === rentalId);
       if (!rental) return;
-
-      setRentals(prev => prev.map(r => r.id === rentalId ? { ...r, status: 'rejected' } : r));
-
-      // Restore Inventory (since request was rejected, the hold is released)
-      setBooks(prev => prev.map(b => {
-          if (b.id === rental.bookId) {
-              const newAvailable = Math.min(b.availableCopies + 1, b.totalCopies);
-              return { ...b, availableCopies: newAvailable, availability: newAvailable > 0 ? Availability.AVAILABLE : Availability.RENTED };
+      
+      setRentals(prev => prev.map(r => {
+          if (r.id === rentalId) {
+              const now = new Date().toISOString();
+              return {
+                  ...r,
+                  status: 'return_requested',
+                  trackingHistory: [...r.trackingHistory, {
+                      status: 'return_requested',
+                      timestamp: now,
+                      location: 'User Dashboard',
+                      description: 'Return requested by member'
+                  }]
+              }
           }
-          return b;
+          return r;
       }));
-
-      addNotification(rental.userId, `Your request for "${rental.bookTitle}" was declined. Please contact support.`, 'error');
-      addToast("Rental request rejected.", 'info');
+      
+      addToast("Return request sent. A librarian will schedule pickup shortly.", 'success');
   };
 
   // Cron Job Simulation to check for expired holds
@@ -503,7 +532,7 @@ const App: React.FC = () => {
 
     // Filter out books already requested by this user to prevent duplicates
     const existingRentalBookIds = rentals
-        .filter(r => r.userId === user.id && (r.status === 'pending' || r.status === 'issued'))
+        .filter(r => r.userId === user.id && (r.status === 'pending' || r.status === 'approved' || r.status === 'dispatched' || r.status === 'delivered'))
         .map(r => r.bookId);
 
     const booksToRent = cart.filter(book => !existingRentalBookIds.includes(book.id));
@@ -536,6 +565,7 @@ const App: React.FC = () => {
     // 2 Days Hold Calculation
     const holdDuration = 2 * 24 * 60 * 60 * 1000;
     const holdExpiresAt = new Date(Date.now() + holdDuration).toISOString();
+    const now = new Date().toISOString();
 
     const newRentals: Rental[] = booksToRent.map(book => ({
             id: 'ord_' + Date.now() + Math.random().toString(36).substr(2, 5),
@@ -544,9 +574,12 @@ const App: React.FC = () => {
             bookCover: book.coverUrl,
             userId: user.id,
             userName: user.name,
-            requestDate: new Date().toISOString(),
+            requestDate: now,
             holdExpiresAt: holdExpiresAt,
-            status: 'pending'
+            status: 'pending',
+            trackingHistory: [
+                { status: 'pending', timestamp: now, location: 'Web', description: 'Order placed by member' }
+            ]
     }));
 
     if (newRentals.length > 0) {
@@ -599,7 +632,7 @@ const App: React.FC = () => {
         return;
     }
 
-    const isAlreadyRequested = rentals.some(r => r.bookId === book.id && r.userId === user?.id && (r.status === 'pending' || r.status === 'issued'));
+    const isAlreadyRequested = rentals.some(r => r.bookId === book.id && r.userId === user?.id && r.status !== 'returned' && r.status !== 'cancelled' && r.status !== 'rejected');
     
     if (isAlreadyRequested) {
       addToast("You have already requested or rented this book.", 'error');
@@ -624,7 +657,7 @@ const App: React.FC = () => {
 
   const handleRenewBook = (bookId: string) => {
     setRentals(prev => prev.map(r => {
-        if (r.bookId === bookId && r.userId === user?.id && r.status === 'issued') {
+        if (r.bookId === bookId && r.userId === user?.id && r.status === 'delivered') {
             const newDue = new Date(r.dueDate || Date.now());
             newDue.setDate(newDue.getDate() + 14);
             return { ...r, dueDate: newDue.toISOString() };
@@ -1001,8 +1034,7 @@ const App: React.FC = () => {
   const BookDetails = () => {
     if (!selectedBook) return null;
 
-    // Check availability in rentals array instead of user.rentedBooks
-    const isRented = rentals.some(r => r.bookId === selectedBook.id && r.userId === user?.id && (r.status === 'issued' || r.status === 'pending' || r.status === 'overdue'));
+    const isRented = rentals.some(r => r.bookId === selectedBook.id && r.userId === user?.id && r.status !== 'returned' && r.status !== 'cancelled' && r.status !== 'rejected');
     const isDownloaded = user?.downloadedBooks.some(b => b.id === selectedBook.id);
     const inWishlist = user?.wishlist.some(b => b.id === selectedBook.id);
     const isOutOfStock = selectedBook.availableCopies === 0;
@@ -1435,6 +1467,7 @@ const App: React.FC = () => {
             onRenew={handleRenewBook}
             onRead={(book) => setReadingBook(book)}
             onSettingsClick={() => setIsSettingsOpen(true)}
+            onRequestReturn={handleRequestReturn}
           />
         )}
 
@@ -1447,7 +1480,8 @@ const App: React.FC = () => {
              onDeleteBook={handleDeleteBook}
              onUpdateBook={handleUpdateBook}
              onIssueBook={handleIssueBook}
-             onReturnBook={handleReturnBook}
+             onUpdateStatus={handleUpdateStatus}
+             onReturnBook={(id) => handleUpdateStatus(id, 'returned')}
              onRejectRental={handleRejectRental}
              onCheckHolds={handleCheckHolds}
              onLogout={handleLogout}

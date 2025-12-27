@@ -51,7 +51,25 @@ export interface ChatMessage {
 
 export type UserRole = 'member' | 'librarian';
 
-export type RentalStatus = 'pending' | 'issued' | 'returned' | 'rejected' | 'overdue' | 'cancelled';
+// Enhanced Statuses for Tracking
+export type RentalStatus = 
+  | 'pending'           // User requested
+  | 'approved'          // Librarian approved (formerly issued)
+  | 'dispatched'        // On the way to user
+  | 'delivered'         // User has the book
+  | 'return_requested'  // User wants to return
+  | 'return_scheduled'  // Pickup arranged
+  | 'returned'          // Back at library
+  | 'rejected'          // Request denied
+  | 'overdue'           // Late
+  | 'cancelled';        // System/User cancelled
+
+export interface TrackingEvent {
+  status: RentalStatus;
+  timestamp: string;
+  location: string;
+  description: string;
+}
 
 export interface Rental {
   id: string;
@@ -64,8 +82,9 @@ export interface Rental {
   issueDate?: string;
   dueDate?: string;
   returnDate?: string;
-  holdExpiresAt?: string; // Date when the reservation expires if not issued
+  holdExpiresAt?: string; 
   status: RentalStatus;
+  trackingHistory: TrackingEvent[]; // New field for timeline
 }
 
 export interface Review {
