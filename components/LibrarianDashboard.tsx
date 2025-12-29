@@ -11,6 +11,7 @@ interface LibrarianDashboardProps {
   onUpdateBook: (book: Book) => void;
   onIssueBook: (rentalId: string) => void;
   onUpdateStatus: (rentalId: string, status: string) => void;
+  onReturnBook: (rentalId: string) => void;
   onRejectRental: (rentalId: string) => void;
   onCheckHolds: () => void;
   onLogout: () => void;
@@ -25,6 +26,7 @@ export const LibrarianDashboard: React.FC<LibrarianDashboardProps> = ({
   onUpdateBook,
   onIssueBook, 
   onUpdateStatus,
+  onReturnBook,
   onRejectRental,
   onCheckHolds,
   onLogout
@@ -202,11 +204,6 @@ export const LibrarianDashboard: React.FC<LibrarianDashboardProps> = ({
   const totalRevenue = circulationRentals.length * 49 + tenantRentals.filter(r => r.status === 'returned').length * 49; 
   const uniqueUsers = Array.from(new Set(tenantRentals.map(r => r.userId))).length;
 
-  const memberList = Array.from(new Set(tenantRentals.map(r => r.userId))).map(uid => {
-      const rental = tenantRentals.find(r => r.userId === uid);
-      return { id: uid, name: rental?.userName, lastActive: rental?.requestDate };
-  });
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -220,7 +217,6 @@ export const LibrarianDashboard: React.FC<LibrarianDashboardProps> = ({
                 <button onClick={() => setActiveTab('requests')} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'requests' ? 'bg-amber-600 text-white' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}>Requests ({pendingRentals.length})</button>
                 <button onClick={() => setActiveTab('circulation')} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'circulation' ? 'bg-amber-600 text-white' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}>Circulation</button>
                 <button onClick={() => setActiveTab('inventory')} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'inventory' ? 'bg-amber-600 text-white' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}>Inventory</button>
-                <button onClick={() => setActiveTab('users')} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'users' ? 'bg-amber-600 text-white' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}>Members</button>
                 <button onClick={() => setActiveTab('maintenance')} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'maintenance' ? 'bg-amber-600 text-white' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}>System</button>
             </div>
             <button 
@@ -232,7 +228,6 @@ export const LibrarianDashboard: React.FC<LibrarianDashboardProps> = ({
         </div>
       </div>
 
-      {/* --- OVERVIEW TAB --- */}
       {activeTab === 'overview' && (
         <div className="animate-in fade-in slide-in-from-bottom-4">
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -268,7 +263,6 @@ export const LibrarianDashboard: React.FC<LibrarianDashboardProps> = ({
         </div>
       )}
 
-      {/* --- ONLINE REQUESTS TAB --- */}
       {activeTab === 'requests' && (
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
             <div className="p-6 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-750">
@@ -330,7 +324,6 @@ export const LibrarianDashboard: React.FC<LibrarianDashboardProps> = ({
         </div>
       )}
 
-      {/* --- CIRCULATION TAB (RETURNS & TRACKING) --- */}
       {activeTab === 'circulation' && (
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
              <div className="p-6 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-750">
@@ -401,7 +394,7 @@ export const LibrarianDashboard: React.FC<LibrarianDashboardProps> = ({
                                     )}
                                     {(rental.status === 'return_scheduled' || rental.status === 'delivered' || rental.status === 'overdue') && (
                                         <button 
-                                            onClick={() => onUpdateStatus(rental.id, 'returned')}
+                                            onClick={() => onReturnBook(rental.id)}
                                             className="px-3 py-1.5 bg-slate-800 text-white rounded-lg hover:bg-slate-900 flex items-center gap-1 text-xs font-bold ml-auto mt-1"
                                         >
                                             <Box size={14} /> Confirm Return
@@ -417,14 +410,6 @@ export const LibrarianDashboard: React.FC<LibrarianDashboardProps> = ({
         </div>
       )}
 
-      {/* --- USERS TAB --- */}
-      {activeTab === 'users' && (
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-             {/* ... (Existing Users Table Content) ... */}
-        </div>
-      )}
-
-      {/* --- INVENTORY TAB --- */}
       {activeTab === 'inventory' && (
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
             <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-col md:flex-row justify-between items-center bg-slate-50 dark:bg-slate-750 gap-4">
@@ -592,7 +577,6 @@ export const LibrarianDashboard: React.FC<LibrarianDashboardProps> = ({
         </div>
       )}
 
-      {/* --- MAINTENANCE TAB --- */}
       {activeTab === 'maintenance' && (
         <div className="grid md:grid-cols-2 gap-8">
             <div className="space-y-4">

@@ -769,7 +769,7 @@ const App: React.FC = () => {
           <div className="mt-auto pt-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <div className="flex flex-col">
               <span className="text-[10px] text-slate-400 dark:text-slate-500">{isOutOfStock ? 'Waitlist Only' : 'Rent for 14 Days'}</span>
-              <span className="font-bold text-slate-800 dark:text-slate-200">₹{book.rentPrice}</span>
+              <span className="font-bold text-slate-800 dark:text-white">₹{book.rentPrice}</span>
             </div>
             <button 
                 disabled={isOutOfStock}
@@ -844,7 +844,7 @@ const App: React.FC = () => {
         <div className="flex flex-wrap gap-2 items-center">
            {/* Sorting Dropdown */}
            <div className="relative group mr-4">
-              <button className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-300 hover:border-amber-600 dark:hover:border-amber-500 hover:text-amber-600 dark:hover:text-amber-500 transition-colors">
+              <button className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-300 hover:border-amber-600 dark:hover:border-amber-500 hover:text-amber-600 dark:hover:border-amber-500 transition-colors">
                   <ArrowUpDown size={14} /> 
                   Sort: {sortOption === 'relevance' ? 'Relevance' : sortOption === 'price_low' ? 'Price: Low to High' : sortOption === 'price_high' ? 'Price: High to Low' : 'Top Rated'}
               </button>
@@ -1481,7 +1481,7 @@ const App: React.FC = () => {
              onUpdateBook={handleUpdateBook}
              onIssueBook={handleIssueBook}
              onUpdateStatus={handleUpdateStatus}
-             onReturnBook={(id) => handleUpdateStatus(id, 'returned')}
+             onReturnBook={(id: string) => handleUpdateStatus(id, 'returned')}
              onRejectRental={handleRejectRental}
              onCheckHolds={handleCheckHolds}
              onLogout={handleLogout}
