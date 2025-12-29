@@ -407,7 +407,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                                       <div key={n.id} className={`p-3 rounded-lg text-sm border ${n.isRead ? 'border-transparent opacity-60' : 'bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800'}`}>
                                          <p className="text-slate-800 dark:text-slate-200 mb-1">{n.message}</p>
                                          <div className="flex justify-between items-center">
-                                            <span className="text-[10px] text-slate-400">{new Date(n.timestamp).toLocaleTimeString()}</span>
+                                            <span className="text-[10px] text-slate-400">{new Date(n.timestamp).toLocaleTimeString()}</p>
                                             {!n.isRead && (
                                               <button onClick={(e) => { e.stopPropagation(); onMarkNotificationRead(n.id); }} className="text-emerald-600 dark:text-emerald-400 text-xs font-bold">Mark Read</button>
                                             )}
